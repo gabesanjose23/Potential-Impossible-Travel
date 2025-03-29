@@ -16,9 +16,9 @@ Sometimes when a bad actor has access to a system, they will attempt to download
 
 ## Steps Taken
 
-### Part 1: Create Alert Rule PowerShell Suspicious Web Request
+### Part 1: Create Alert Rule For Potential Impossible Travel
 
-Here I am setting up the rules to detect if there were any Suspicious PowerShell running. 
+Here I am setting up the rules to detect if there were any Potential Impossible Travel
 
 ```kql
 let TimePeriodThreshold = timespan(7d); 
@@ -31,30 +31,44 @@ SigninLogs
 | where PotentialImpossibleTravelInstances > NumberOfDifferentLocationsAllowed
 ```
 
-<img width="1212" alt="image" src="Screenshot 2025-03-26 004914.png">
+<img width="1212" alt="image" src="Screenshot 2025-03-29 011637.png">
 
-<img width="1212" alt="image" src="Screenshot 2025-03-26 005151.png">
+<img width="1212" alt="image" src="Screenshot 2025-03-29 012030.png">
 
 ---
 
 ### 2. Investigate the alert
 
-The Suspicious Web Request was triggered on 1 device by 1 user,but download 4 different scripts.After investigating with Defender for Endpoint, it was determined that the downloaded scripts did run.see the following query.
+After making the rule the alert was trigger and discovered that 52 accounts were set of.Here we observed 2 accounts one being josh.madakor@gmail.com  who had 4 instances in the last 7 but all logins were in the same state and city. And The other account arisa_lognpacific@lognpacific.com had 3 instances in 7 days somewhere different but were no more than a 1 hour distance from normal location.
 
 **Query used to locate event:**
 
 ```kql
-let ScriptNames = dynamic(["eicar.ps1", "exfiltratedata.ps1", "portscan.ps1", "pwncrypt.ps1"]);
-DeviceProcessEvents
-| where DeviceName == "windows-target-1"
-| where FileName == "powershell.exe"
-| where ProcessCommandLine contains "-File" and ProcessCommandLine has_any (ScriptNames)
-| order by TimeGenerated
-| project TimeGenerated, AccountName, DeviceName, FileName, ProcessCommandLine
+let TargetUserPrincipalName = "josh.madakor@gmail.com"; 
+let TimePeriodThreshold = timespan(7d);
+SigninLogs
+| where TimeGenerated > ago(TimePeriodThreshold)
+| where UserPrincipalName == TargetUserPrincipalName
+| project TimeGenerated, UserPrincipalName, City = tostring(parse_json(LocationDetails).city), State = tostring(parse_json(LocationDetails).state), Country = tostring(parse_json(LocationDetails).countryOrRegion)
+| order by TimeGenerated desc
 ```
-<img width="1212" alt="image" src="Screenshot 2025-03-26 013922.png">
 
-<img width="1212" alt="image" src="Screenshot 2025-03-26 013220.png">
+**Query used to locate event:**
+
+```kql
+let TargetUserPrincipalName = "arisa_lognpacific@lognpacific.com"; 
+let TimePeriodThreshold = timespan(7d);
+SigninLogs
+| where TimeGenerated > ago(TimePeriodThreshold)
+| where UserPrincipalName == TargetUserPrincipalName
+| project TimeGenerated, UserPrincipalName, City = tostring(parse_json(LocationDetails).city), State = tostring(parse_json(LocationDetails).state), Country = tostring(parse_json(LocationDetails).countryOrRegion)
+| order by TimeGenerated desc
+```
+<img width="1212" alt="image" src="Screenshot 2025-03-29 014525.png">
+
+<img width="1212" alt="image" src="Screenshot 2025-03-29 014358.png">
+
+<img width="1212" alt="image" src="Screenshot 2025-03-29 014648.png">
 
 ---
 
@@ -62,18 +76,10 @@ DeviceProcessEvents
 
 MITRE ATT&CK - T1078: Valid Accounts
 
-MITRE ATT&CK - T1059.001: PowerShell
-
-MITRE ATT&CK - T1105: Ingress Tool Transfer
-
-MITRE ATT&CK - T1203: Exploitation for Client Execution
-
-MITRE ATT&CK - T1041: Exfiltration Over C2 Channel
-
 ---
 
 ## Response Action
 
-Machine was isolated in MDE and an anti-malware scan was run.After the machine came back clean, we removed it from isolation, had the affected user go through extra rounds of cybersecurity awareness training and upgraded our training package from  knowBe4 and increased frequency.Started the implementation of a policy that restricts the use of powershell for non-essential users.
+after investigating 52 alerts it was determined to be a TRUE Benign.The 52 accounts all had normal/relatively normal locations. so the accounts were left alone and to continue normal operations.(not disable)
 
 ---
