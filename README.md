@@ -20,6 +20,16 @@ Sometimes when a bad actor has access to a system, they will attempt to download
 
 Here I am setting up the rules to detect if there were any Suspicious PowerShell running. 
 
+```kql
+let TimePeriodThreshold = timespan(7d); 
+let NumberOfDifferentLocationsAllowed = 2;
+SigninLogs
+| where TimeGenerated > ago(TimePeriodThreshold)
+| summarize Count = count() by UserPrincipalName, UserId, City = tostring(parse_json(LocationDetails).city), State = tostring(parse_json(LocationDetails).state), Country = tostring(parse_json(LocationDetails).countryOrRegion)
+| project UserPrincipalName, UserId, City, State, Country
+| summarize PotentialImpossibleTravelInstances = count() by UserPrincipalName, UserId
+| where PotentialImpossibleTravelInstances > NumberOfDifferentLocationsAllowed
+```
 
 <img width="1212" alt="image" src="Screenshot 2025-03-26 004914.png">
 
@@ -50,7 +60,7 @@ DeviceProcessEvents
 
 ## Summary
 
-MITRE ATT&CK - T1071.001: Web Protocols
+MITRE ATT&CK - T1078: Valid Accounts
 
 MITRE ATT&CK - T1059.001: PowerShell
 
